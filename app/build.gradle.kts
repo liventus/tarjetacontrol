@@ -1,3 +1,5 @@
+import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+
 plugins {
     id("com.google.gms.google-services")
     alias(libs.plugins.android.application)
@@ -23,12 +25,25 @@ android {
     }
 
     buildTypes {
+        debug {
+            // AGP 9.x no deja el APK siempre en el mismo lugar (a veces en
+            // intermediates/, a veces en outputs/), así que apuntamos a una
+            // ubicación fija que nosotros mismos preparamos (ver prepareApkForDistribution).
+            firebaseAppDistribution {
+                artifactType = "APK"
+                artifactPath = layout.buildDirectory.file("distribution/app-debug.apk").get().asFile.path
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            firebaseAppDistribution {
+                artifactType = "APK"
+                artifactPath = layout.buildDirectory.file("distribution/app-release.apk").get().asFile.path
+            }
         }
     }
     compileOptions {
@@ -54,6 +69,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.compose.material.icons.extended)
     implementation(platform("com.google.firebase:firebase-bom:34.19.0"))
     implementation("com.google.firebase:firebase-analytics")
     testImplementation(libs.junit)
@@ -64,4 +81,48 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.ui.tooling)
 
+}
+
+// El plugin de Firebase App Distribution ya no encadena automáticamente la
+// tarea de ensamblado con AGP 9.x, y AGP 9.x tampoco deja el APK en una
+// ubicación fija. Copiamos el APK real (donde sea que haya quedado) a una
+// ruta conocida antes de subirlo.
+fun registerPrepareApk(variant: String, apkFileName: String, sourceCandidates: List<String>) {
+    val prepareTask = tasks.register("prepareApkForDistribution${variant.replaceFirstChar { it.uppercase() }}") {
+        dependsOn("assemble${variant.replaceFirstChar { it.uppercase() }}")
+        doLast {
+            val source = sourceCandidates
+                .map { layout.buildDirectory.file(it).get().asFile }
+                .firstOrNull { it.exists() }
+                ?: throw GradleException(
+                    "No se encontró el APK de $variant. Rutas revisadas: $sourceCandidates"
+                )
+            val dest = layout.buildDirectory.file("distribution/$apkFileName").get().asFile
+            dest.parentFile.mkdirs()
+            source.copyTo(dest, overwrite = true)
+        }
+    }
+    tasks.findByName("appDistributionUpload${variant.replaceFirstChar { it.uppercase() }}")
+        ?.dependsOn(prepareTask)
+}
+
+afterEvaluate {
+    registerPrepareApk(
+        variant = "debug",
+        apkFileName = "app-debug.apk",
+        sourceCandidates = listOf(
+            "intermediates/apk/debug/app-debug.apk",
+            "outputs/apk/debug/app-debug.apk"
+        )
+    )
+    registerPrepareApk(
+        variant = "release",
+        apkFileName = "app-release.apk",
+        sourceCandidates = listOf(
+            "intermediates/apk/release/app-release-unsigned.apk",
+            "intermediates/apk/release/app-release.apk",
+            "outputs/apk/release/app-release-unsigned.apk",
+            "outputs/apk/release/app-release.apk"
+        )
+    )
 }
