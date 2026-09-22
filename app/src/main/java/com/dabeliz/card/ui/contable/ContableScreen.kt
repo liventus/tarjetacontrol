@@ -9,79 +9,140 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Paid
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.MovimientoContable
 import com.dabeliz.card.model.MovimientosDeEjemplo
+import com.dabeliz.card.model.OrdenPedido
+import com.dabeliz.card.model.PedidosDeEjemplo
 import com.dabeliz.card.model.TipoMovimiento
+import com.dabeliz.card.ui.common.DabelizStatTile
+import com.dabeliz.card.ui.common.DabelizTopBar
+import com.dabeliz.card.ui.theme.DabelizGold
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
 import java.util.Locale
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ContableScreen(
+    pedidos: List<OrdenPedido> = PedidosDeEjemplo.lista,
     movimientos: List<MovimientoContable> = MovimientosDeEjemplo.lista,
     onBack: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val balance = movimientos.sumOf {
+    val costoTotalProduccion = pedidos.sumOf { it.costoTotal }
+    val ingresoTotalPedidos = pedidos.sumOf { it.ingresoTotal }
+    val gananciaTotalPedidos = pedidos.sumOf { it.gananciaTotal }
+    val gananciaFacturada = pedidos.filter { it.facturado }.sumOf { it.gananciaTotal }
+    val gananciaPorFacturar = gananciaTotalPedidos - gananciaFacturada
+
+    val balanceManual = movimientos.sumOf {
         if (it.tipo == TipoMovimiento.INGRESO) it.monto else -it.monto
     }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = {
-            TopAppBar(
-                title = { Text("Área Contable") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Volver")
-                    }
-                }
-            )
-        }
+        topBar = { DabelizTopBar(title = "Área Contable", onBack = onBack) }
     ) { innerPadding ->
-        Column(modifier = Modifier.padding(innerPadding)) {
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Balance actual", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = formatoMoneda(balance),
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = if (balance >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                SeccionTitulo("Resumen de pedidos")
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DabelizStatTile(
+                        etiqueta = "Gasto total de producción",
+                        valor = formatoMoneda(costoTotalProduccion),
+                        icono = Icons.AutoMirrored.Filled.TrendingDown,
+                        acento = Color(0xFFE53935),
+                        modifier = Modifier.weight(1f)
+                    )
+                    DabelizStatTile(
+                        etiqueta = "Ganancia total (todos los pedidos)",
+                        valor = formatoMoneda(gananciaTotalPedidos),
+                        icono = Icons.AutoMirrored.Filled.TrendingUp,
+                        acento = Color(0xFF43A047),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    DabelizStatTile(
+                        etiqueta = "Ganancia facturada",
+                        valor = formatoMoneda(gananciaFacturada),
+                        icono = Icons.AutoMirrored.Filled.ReceiptLong,
+                        acento = DabelizGold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    DabelizStatTile(
+                        etiqueta = "Ganancia por facturar",
+                        valor = formatoMoneda(gananciaPorFacturar),
+                        icono = Icons.Default.Paid,
+                        acento = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.weight(1f)
                     )
                 }
             }
 
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(movimientos, key = { it.id }) { movimiento ->
-                    MovimientoItem(movimiento)
+            item {
+                SeccionTitulo("Movimientos contables", topPadding = 12.dp)
+            }
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Balance de caja (ingresos y egresos manuales)", style = MaterialTheme.typography.bodyMedium)
+                            }
+                            Text(
+                                text = formatoMoneda(balanceManual),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (balanceManual >= 0) Color(0xFF43A047) else Color(0xFFE53935)
+                            )
+                        }
+                    }
                 }
+            }
+
+            items(movimientos, key = { it.id }) { movimiento ->
+                MovimientoItem(movimiento)
             }
         }
     }
+}
+
+@Composable
+private fun SeccionTitulo(texto: String, topPadding: androidx.compose.ui.unit.Dp = 0.dp) {
+    Text(
+        text = texto.uppercase(),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = topPadding, bottom = 4.dp)
+    )
 }
 
 @Composable

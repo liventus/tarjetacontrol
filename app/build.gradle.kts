@@ -1,4 +1,5 @@
 import com.google.firebase.appdistribution.gradle.firebaseAppDistribution
+import java.util.Properties
 
 plugins {
     id("com.google.gms.google-services")
@@ -7,6 +8,21 @@ plugins {
     alias(libs.plugins.firebase.appdistribution)
 
 }
+
+// El número de versión vive en version.properties (no en este archivo) para
+// poder incrementarlo automáticamente cada vez que se despliega a Firebase
+// App Distribution, sin tener que tocar el build.gradle a mano.
+val versionPropsFile = file("version.properties")
+val versionProps = Properties().apply {
+    if (versionPropsFile.exists()) {
+        versionPropsFile.inputStream().use { load(it) }
+    } else {
+        setProperty("VERSION_CODE", "1")
+        setProperty("VERSION_NAME", "1.0")
+    }
+}
+val appVersionCode = versionProps.getProperty("VERSION_CODE").toInt()
+val appVersionName = versionProps.getProperty("VERSION_NAME")
 
 android {
     namespace = "com.dabeliz.card"
@@ -18,8 +34,8 @@ android {
         applicationId = "com.dabeliz.card"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -52,6 +68,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     //noinspection WrongGradleMethod
     firebaseAppDistributionDefault {
@@ -125,4 +142,18 @@ afterEvaluate {
             "outputs/apk/release/app-release.apk"
         )
     )
+}
+
+// Cada vez que se sube una build a Firebase App Distribution, el número de
+// build (versionCode) sube en 1 automáticamente para la SIGUIENTE build. El
+// versionName (1.0, 1.1, ...) se sigue controlando a mano en version.properties
+// cuando quieras marcar un cambio mayor.
+tasks.matching { it.name.startsWith("appDistributionUpload") }.configureEach {
+    doLast {
+        val props = Properties()
+        versionPropsFile.inputStream().use { props.load(it) }
+        val siguiente = props.getProperty("VERSION_CODE").toInt() + 1
+        props.setProperty("VERSION_CODE", siguiente.toString())
+        versionPropsFile.outputStream().use { props.store(it, "Auto-incrementado al desplegar") }
+    }
 }
