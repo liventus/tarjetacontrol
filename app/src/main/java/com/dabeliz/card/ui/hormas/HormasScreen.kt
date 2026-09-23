@@ -1,4 +1,4 @@
-package com.dabeliz.card.ui.modelos
+package com.dabeliz.card.ui.hormas
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -38,33 +38,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.Horma
-import com.dabeliz.card.model.ModeloCalzado
-import com.dabeliz.card.model.ModelosDeEjemplo
-import com.dabeliz.card.ui.common.formatoMoneda
+import com.dabeliz.card.model.HormasDeEjemplo
 import com.dabeliz.card.ui.common.DabelizTopBar
 import com.dabeliz.card.ui.common.decodificarBitmap
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ModelosScreen(
-    modelos: List<ModeloCalzado> = ModelosDeEjemplo.lista,
-    hormas: List<Horma> = emptyList(),
+fun HormasScreen(
+    hormas: List<Horma> = HormasDeEjemplo.lista,
     onBack: () -> Unit = {},
-    onNuevoModelo: () -> Unit = {},
-    onSeleccionarModelo: (ModeloCalzado) -> Unit = {},
+    onNuevaHorma: () -> Unit = {},
+    onSeleccionarHorma: (Horma) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        topBar = { DabelizTopBar(title = "Área Modelos", onBack = onBack) },
+        topBar = { DabelizTopBar(title = "Área Hormas", onBack = onBack) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNuevoModelo,
+                onClick = onNuevaHorma,
                 containerColor = MaterialTheme.colorScheme.secondary,
                 contentColor = MaterialTheme.colorScheme.onSecondary
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Registrar nuevo modelo")
+                Icon(Icons.Default.Add, contentDescription = "Registrar nueva horma")
             }
         }
     ) { innerPadding ->
@@ -77,23 +74,18 @@ fun ModelosScreen(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(modelos, key = { it.id }) { modelo ->
-                ModeloItem(
-                    modelo = modelo,
-                    horma = hormas.firstOrNull { it.id == modelo.hormaId },
-                    onClick = { onSeleccionarModelo(modelo) }
-                )
+            items(hormas, key = { it.id }) { horma ->
+                HormaItem(horma, onClick = { onSeleccionarHorma(horma) })
             }
         }
     }
 }
 
-
 @Composable
-private fun ModeloItem(modelo: ModeloCalzado, horma: Horma?, onClick: () -> Unit) {
+private fun HormaItem(horma: Horma, onClick: () -> Unit) {
     val context = LocalContext.current
-    val bitmap = remember(modelo.imagenDestacada) {
-        modelo.imagenDestacada?.let { decodificarBitmap(context, android.net.Uri.parse(it)) }
+    val bitmap = remember(horma.imagenDestacada) {
+        horma.imagenDestacada?.let { decodificarBitmap(context, android.net.Uri.parse(it)) }
     }
 
     Card(
@@ -113,7 +105,7 @@ private fun ModeloItem(modelo: ModeloCalzado, horma: Horma?, onClick: () -> Unit
                 if (bitmap != null) {
                     Image(
                         bitmap = bitmap.asImageBitmap(),
-                        contentDescription = modelo.nombre,
+                        contentDescription = horma.nombre,
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
@@ -127,42 +119,25 @@ private fun ModeloItem(modelo: ModeloCalzado, horma: Horma?, onClick: () -> Unit
             }
 
             Column(modifier = Modifier.padding(start = 12.dp)) {
-                Text(modelo.nombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text(horma.nombre, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 Text(
-                    text = modelo.categoria,
-                    style = MaterialTheme.typography.bodyMedium,
+                    text = horma.codigo,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                Text(
+                    text = "Talla (pares): ${horma.tallasTexto}",
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(top = 4.dp)
                 )
                 Text(
-                    text = if (horma != null) "Horma: ${horma.codigo} (${horma.numerosTexto})" else "Sin horma asignada",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (horma != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp)
+                    text = "Total: ${horma.totalPares} pares",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    Column {
-                        Text("Costo", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatoMoneda(modelo.costo), style = MaterialTheme.typography.bodyMedium)
-                    }
-                    Column {
-                        Text("Venta", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            formatoMoneda(modelo.precioVenta),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Column {
-                        Text("Margen", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(formatoMoneda(modelo.margenGanancia), style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
             }
         }
     }
@@ -170,8 +145,8 @@ private fun ModeloItem(modelo: ModeloCalzado, horma: Horma?, onClick: () -> Unit
 
 @Preview(showBackground = true)
 @Composable
-fun ModelosScreenPreview() {
+fun HormasScreenPreview() {
     TarjetaconotrolTheme {
-        ModelosScreen()
+        HormasScreen()
     }
 }

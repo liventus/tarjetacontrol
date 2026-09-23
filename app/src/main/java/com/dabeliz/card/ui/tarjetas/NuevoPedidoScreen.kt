@@ -41,15 +41,17 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.EstadoProduccion
+import com.dabeliz.card.model.Horma
 import com.dabeliz.card.model.ModeloCalzado
 import com.dabeliz.card.model.ModelosDeEjemplo
 import com.dabeliz.card.model.OrdenPedido
 import com.dabeliz.card.model.LineaPedido
 import com.dabeliz.card.model.SerieTalla
 import com.dabeliz.card.model.UnidadPedido
+import com.dabeliz.card.ui.common.ContenidoCentrado
 import com.dabeliz.card.ui.common.DabelizTopBar
+import com.dabeliz.card.ui.common.formatoMoneda
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
-import java.util.Locale
 
 private class SerieEditState(talla: String = "", cantidad: String = "") {
     var talla by mutableStateOf(talla)
@@ -67,13 +69,14 @@ private class LineaEditState(modeloId: Int?, unidad: UnidadPedido = UnidadPedido
 fun NuevoPedidoScreen(
     siguienteId: Int,
     modelosDisponibles: List<ModeloCalzado> = ModelosDeEjemplo.lista,
+    hormasDisponibles: List<Horma> = emptyList(),
     onGuardar: (OrdenPedido) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var cliente by rememberSaveable { mutableStateOf("") }
     var fechaEntrega by rememberSaveable { mutableStateOf("") }
-    var estado by rememberSaveable { mutableStateOf(EstadoProduccion.PENDIENTE) }
+    var estado by rememberSaveable { mutableStateOf(EstadoProduccion.INICIAR_PRODUCCION) }
     var estadoExpandido by remember { mutableStateOf(false) }
     var errorMensaje by remember { mutableStateOf<String?>(null) }
     val lineas = remember {
@@ -90,9 +93,9 @@ fun NuevoPedidoScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+          ContenidoCentrado(modifier = Modifier.padding(16.dp)) {
             OutlinedTextField(
                 value = cliente,
                 onValueChange = { cliente = it; errorMensaje = null },
@@ -160,6 +163,7 @@ fun NuevoPedidoScreen(
                 LineaPedidoEditor(
                     linea = linea,
                     modelosDisponibles = modelosDisponibles,
+                    hormasDisponibles = hormasDisponibles,
                     puedeQuitar = lineas.size > 1,
                     onQuitar = { lineas.removeAt(index) },
                     modifier = Modifier.padding(bottom = 12.dp)
@@ -226,7 +230,6 @@ fun NuevoPedidoScreen(
                                 cliente = cliente,
                                 fechaEntrega = fechaEntrega,
                                 estado = estado,
-                                facturado = false,
                                 lineas = lineasFinal
                             )
                         )
@@ -238,6 +241,7 @@ fun NuevoPedidoScreen(
             ) {
                 Text("Guardar pedido")
             }
+          }
         }
     }
 }
@@ -247,12 +251,14 @@ fun NuevoPedidoScreen(
 private fun LineaPedidoEditor(
     linea: LineaEditState,
     modelosDisponibles: List<ModeloCalzado>,
+    hormasDisponibles: List<Horma>,
     puedeQuitar: Boolean,
     onQuitar: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     var modeloExpandido by remember { mutableStateOf(false) }
     val modeloSeleccionado = modelosDisponibles.firstOrNull { it.id == linea.modeloId }
+    val hormaDelModelo = hormasDisponibles.firstOrNull { it.id == modeloSeleccionado?.hormaId }
     val totalDeclarado = linea.series.sumOf { it.cantidad.toIntOrNull() ?: 0 }
     val totalPares = if (linea.unidad == UnidadPedido.MILLAR) totalDeclarado * 1000 else totalDeclarado
 
@@ -301,6 +307,19 @@ private fun LineaPedidoEditor(
                         )
                     }
                 }
+            }
+
+            if (modeloSeleccionado != null) {
+                Text(
+                    text = if (hormaDelModelo != null) {
+                        "Horma ${hormaDelModelo.codigo} · disponible por talla: ${hormaDelModelo.tallasTexto}"
+                    } else {
+                        "Este modelo no tiene horma asignada"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (hormaDelModelo != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
             }
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -357,7 +376,7 @@ private fun LineaPedidoEditor(
             if (modeloSeleccionado != null && totalPares > 0) {
                 Text(
                     text = "$totalPares pares · Ingreso estimado ${
-                        String.format(Locale.getDefault(), "$%,.2f", totalPares * modeloSeleccionado.precioVenta)
+                        formatoMoneda(totalPares * modeloSeleccionado.precioVenta)
                     }",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary,

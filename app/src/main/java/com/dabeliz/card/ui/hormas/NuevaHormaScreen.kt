@@ -1,4 +1,4 @@
-package com.dabeliz.card.ui.modelos
+package com.dabeliz.card.ui.hormas
 
 import android.Manifest
 import android.net.Uri
@@ -28,25 +28,24 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -57,46 +56,42 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.Horma
-import com.dabeliz.card.model.ModeloCalzado
+import com.dabeliz.card.model.SerieTalla
+import com.dabeliz.card.model.generarCodigoHorma
 import com.dabeliz.card.ui.common.ContenidoCentrado
 import com.dabeliz.card.ui.common.DabelizTopBar
+import com.dabeliz.card.ui.common.SelectorTallas
 import com.dabeliz.card.ui.common.crearUriParaFoto
 import com.dabeliz.card.ui.common.decodificarBitmap
 import com.dabeliz.card.ui.theme.DabelizGold
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
 
 @Composable
-fun NuevoModeloScreen(
+fun NuevaHormaScreen(
     siguienteId: Int,
-    hormasDisponibles: List<Horma> = emptyList(),
-    onGuardar: (ModeloCalzado) -> Unit,
+    onGuardar: (Horma) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    FormularioModelo(
-        titulo = "Nuevo modelo",
-        hormasDisponibles = hormasDisponibles,
+    FormularioHorma(
+        titulo = "Nueva horma",
+        codigo = generarCodigoHorma(siguienteId),
         nombreInicial = "",
-        categoriaInicial = "",
-        costoInicial = "",
-        precioVentaInicial = "",
-        hormaIdInicial = null,
+        paresPorTallaInicial = emptyMap(),
         imagenesIniciales = emptyList(),
         imagenPrincipalInicial = null,
-        textoBoton = "Guardar modelo",
-        onGuardar = { nombre, categoria, costo, precioVenta, hormaId, imagenes, imagenPrincipal ->
+        textoBoton = "Guardar horma",
+        onGuardar = { nombre, tallas, imagenes, imagenPrincipal ->
             onGuardar(
-                ModeloCalzado(
+                Horma(
                     id = siguienteId,
                     nombre = nombre,
-                    categoria = categoria,
-                    costo = costo,
-                    precioVenta = precioVenta,
-                    hormaId = hormaId,
+                    tallas = tallas,
                     imagenes = imagenes,
                     imagenPrincipal = imagenPrincipal
                 )
@@ -108,32 +103,25 @@ fun NuevoModeloScreen(
 }
 
 @Composable
-fun EditarModeloScreen(
-    modelo: ModeloCalzado,
-    hormasDisponibles: List<Horma> = emptyList(),
-    onGuardar: (ModeloCalzado) -> Unit,
+fun EditarHormaScreen(
+    horma: Horma,
+    onGuardar: (Horma) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    FormularioModelo(
-        titulo = "Editar modelo",
-        hormasDisponibles = hormasDisponibles,
-        nombreInicial = modelo.nombre,
-        categoriaInicial = modelo.categoria,
-        costoInicial = modelo.costo.toString(),
-        precioVentaInicial = modelo.precioVenta.toString(),
-        hormaIdInicial = modelo.hormaId,
-        imagenesIniciales = modelo.imagenes.map { Uri.parse(it) },
-        imagenPrincipalInicial = modelo.imagenPrincipal?.let { Uri.parse(it) },
+    FormularioHorma(
+        titulo = "Editar horma",
+        codigo = horma.codigo,
+        nombreInicial = horma.nombre,
+        paresPorTallaInicial = horma.tallas.associate { it.talla to it.cantidad.toString() },
+        imagenesIniciales = horma.imagenes.map { Uri.parse(it) },
+        imagenPrincipalInicial = horma.imagenPrincipal?.let { Uri.parse(it) },
         textoBoton = "Guardar cambios",
-        onGuardar = { nombre, categoria, costo, precioVenta, hormaId, imagenes, imagenPrincipal ->
+        onGuardar = { nombre, tallas, imagenes, imagenPrincipal ->
             onGuardar(
-                modelo.copy(
+                horma.copy(
                     nombre = nombre,
-                    categoria = categoria,
-                    costo = costo,
-                    precioVenta = precioVenta,
-                    hormaId = hormaId,
+                    tallas = tallas,
                     imagenes = imagenes,
                     imagenPrincipal = imagenPrincipal
                 )
@@ -146,37 +134,22 @@ fun EditarModeloScreen(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun FormularioModelo(
+private fun FormularioHorma(
     titulo: String,
-    hormasDisponibles: List<Horma>,
+    codigo: String,
     nombreInicial: String,
-    categoriaInicial: String,
-    costoInicial: String,
-    precioVentaInicial: String,
-    hormaIdInicial: Int?,
+    paresPorTallaInicial: Map<Int, String>,
     imagenesIniciales: List<Uri>,
     imagenPrincipalInicial: Uri?,
     textoBoton: String,
-    onGuardar: (
-        nombre: String,
-        categoria: String,
-        costo: Double,
-        precioVenta: Double,
-        hormaId: Int?,
-        imagenes: List<String>,
-        imagenPrincipal: String?
-    ) -> Unit,
+    onGuardar: (nombre: String, tallas: List<SerieTalla>, imagenes: List<String>, imagenPrincipal: String?) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
 
     var nombre by rememberSaveable { mutableStateOf(nombreInicial) }
-    var categoria by rememberSaveable { mutableStateOf(categoriaInicial) }
-    var costoTexto by rememberSaveable { mutableStateOf(costoInicial) }
-    var precioVentaTexto by rememberSaveable { mutableStateOf(precioVentaInicial) }
-    var hormaSeleccionadaId by rememberSaveable { mutableStateOf(hormaIdInicial) }
-    var hormaExpandida by remember { mutableStateOf(false) }
+    val paresPorTalla = remember { mutableStateMapOf<Int, String>().apply { putAll(paresPorTallaInicial) } }
     var imagenes by rememberSaveable { mutableStateOf(imagenesIniciales) }
     var imagenPrincipal by rememberSaveable { mutableStateOf(imagenPrincipalInicial) }
     var uriFotoPendiente by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -207,8 +180,6 @@ private fun FormularioModelo(
         ActivityResultContracts.PickVisualMedia()
     ) { uri -> if (uri != null) agregarImagen(uri) }
 
-    val hormaSeleccionada = hormasDisponibles.firstOrNull { it.id == hormaSeleccionadaId }
-
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = { DabelizTopBar(title = titulo, onBack = onBack) }
@@ -220,8 +191,24 @@ private fun FormularioModelo(
                 .verticalScroll(rememberScrollState())
         ) {
           ContenidoCentrado(modifier = Modifier.padding(16.dp)) {
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp)
+            ) {
+                Text(
+                    text = "Código: $codigo",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                )
+            }
+
             Text(
-                text = "Fotos del modelo",
+                text = "Fotos de la horma",
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.padding(bottom = 8.dp)
             )
@@ -234,7 +221,7 @@ private fun FormularioModelo(
 
             LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(imagenes) { uri ->
-                    FotoModeloThumbnail(
+                    FotoHormaThumbnail(
                         uri = uri,
                         esPrincipal = uri == imagenPrincipal,
                         onMarcarPrincipal = { imagenPrincipal = uri },
@@ -293,86 +280,62 @@ private fun FormularioModelo(
             OutlinedTextField(
                 value = nombre,
                 onValueChange = { nombre = it; errorMensaje = null },
-                label = { Text("Nombre del modelo") },
+                label = { Text("Nombre de la horma") },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(bottom = 12.dp)
             )
-            OutlinedTextField(
-                value = categoria,
-                onValueChange = { categoria = it; errorMensaje = null },
-                label = { Text("Categoría") },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-            )
-
-            ExposedDropdownMenuBox(
-                expanded = hormaExpandida,
-                onExpandedChange = { hormaExpandida = it },
-                modifier = Modifier.padding(bottom = 12.dp)
-            ) {
-                OutlinedTextField(
-                    value = hormaSeleccionada?.let { "${it.codigo} · ${it.nombre}" } ?: "Sin horma asignada",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Horma (opcional)") },
-                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, contentDescription = null) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable, enabled = true)
-                )
-                ExposedDropdownMenu(
-                    expanded = hormaExpandida,
-                    onDismissRequest = { hormaExpandida = false }
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Sin horma asignada") },
-                        onClick = { hormaSeleccionadaId = null; hormaExpandida = false }
-                    )
-                    hormasDisponibles.forEach { horma ->
-                        DropdownMenuItem(
-                            text = { Text("${horma.codigo} · ${horma.nombre}") },
-                            onClick = { hormaSeleccionadaId = horma.id; hormaExpandida = false }
-                        )
-                    }
-                }
-            }
 
             Text(
-                text = if (hormaSeleccionada != null) {
-                    "Tallas de este modelo (según la horma): ${hormaSeleccionada.numerosTexto}"
-                } else {
-                    "Asigna una horma para saber en qué tallas viene este modelo."
+                text = "Tallas de la horma",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            SelectorTallas(
+                tallasSeleccionadas = paresPorTalla.keys,
+                onToggleTalla = { talla ->
+                    if (paresPorTalla.containsKey(talla)) {
+                        paresPorTalla.remove(talla)
+                    } else {
+                        paresPorTalla[talla] = ""
+                    }
+                    errorMensaje = null
                 },
-                style = MaterialTheme.typography.bodySmall,
-                color = if (hormaSeleccionada != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 16.dp)
+                modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = costoTexto,
-                    onValueChange = { costoTexto = it; errorMensaje = null },
-                    label = { Text("Costo") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(bottom = 8.dp)
+            if (paresPorTalla.isNotEmpty()) {
+                Text(
+                    text = "Pares por talla",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-                OutlinedTextField(
-                    value = precioVentaTexto,
-                    onValueChange = { precioVentaTexto = it; errorMensaje = null },
-                    label = { Text("Precio de venta") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(bottom = 8.dp)
-                )
+                paresPorTalla.keys.sorted().forEach { talla ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Talla $talla",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.width(80.dp)
+                        )
+                        OutlinedTextField(
+                            value = paresPorTalla[talla] ?: "",
+                            onValueChange = { paresPorTalla[talla] = it; errorMensaje = null },
+                            label = { Text("Pares") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { paresPorTalla.remove(talla) }) {
+                            Icon(Icons.Default.Close, contentDescription = "Quitar talla $talla")
+                        }
+                    }
+                }
             }
 
             errorMensaje?.let {
@@ -386,19 +349,17 @@ private fun FormularioModelo(
 
             Button(
                 onClick = {
-                    val costo = costoTexto.replace(",", ".").toDoubleOrNull()
-                    val precioVenta = precioVentaTexto.replace(",", ".").toDoubleOrNull()
+                    val seriesValidas = paresPorTalla.mapNotNull { (talla, texto) ->
+                        texto.toIntOrNull()?.let { cantidad -> SerieTalla(talla, cantidad) }
+                    }
                     when {
-                        nombre.isBlank() -> errorMensaje = "Ingresa el nombre del modelo"
-                        categoria.isBlank() -> errorMensaje = "Ingresa la categoría"
-                        costo == null -> errorMensaje = "Ingresa un costo válido"
-                        precioVenta == null -> errorMensaje = "Ingresa un precio de venta válido"
+                        nombre.isBlank() -> errorMensaje = "Ingresa el nombre de la horma"
+                        paresPorTalla.isEmpty() -> errorMensaje = "Selecciona al menos una talla"
+                        seriesValidas.size != paresPorTalla.size ->
+                            errorMensaje = "Ingresa cuántos pares tienes de cada talla seleccionada"
                         else -> onGuardar(
                             nombre,
-                            categoria,
-                            costo,
-                            precioVenta,
-                            hormaSeleccionadaId,
+                            seriesValidas.sortedBy { it.talla },
                             imagenes.map { it.toString() },
                             imagenPrincipal?.toString()
                         )
@@ -416,7 +377,7 @@ private fun FormularioModelo(
 }
 
 @Composable
-private fun FotoModeloThumbnail(
+private fun FotoHormaThumbnail(
     uri: Uri,
     esPrincipal: Boolean,
     onMarcarPrincipal: () -> Unit,
@@ -439,7 +400,7 @@ private fun FotoModeloThumbnail(
             if (bitmap != null) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "Foto del modelo",
+                    contentDescription = "Foto de la horma",
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
@@ -487,8 +448,8 @@ private fun FotoModeloThumbnail(
 
 @Preview(showBackground = true)
 @Composable
-fun NuevoModeloScreenPreview() {
+fun NuevaHormaScreenPreview() {
     TarjetaconotrolTheme {
-        NuevoModeloScreen(siguienteId = 1, onGuardar = {}, onBack = {})
+        NuevaHormaScreen(siguienteId = 1, onGuardar = {}, onBack = {})
     }
 }

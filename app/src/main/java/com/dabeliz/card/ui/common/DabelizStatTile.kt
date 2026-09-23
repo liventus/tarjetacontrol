@@ -17,9 +17,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
-/** Tarjeta KPI para paneles tipo dashboard (usada en Área Contable). */
+/** Tarjeta KPI compacta para paneles tipo dashboard (usada en Área Contable). */
 @Composable
 fun DabelizStatTile(
     etiqueta: String,
@@ -32,27 +33,31 @@ fun DabelizStatTile(
         modifier = modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(12.dp)) {
             Icon(
                 imageVector = icono,
                 contentDescription = null,
                 tint = acento,
                 modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(acento.copy(alpha = 0.12f))
-                    .padding(7.dp)
+                    .padding(5.dp)
             )
             Text(
                 text = valor,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(top = 12.dp)
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 8.dp)
             )
             Text(
                 text = etiqueta,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }

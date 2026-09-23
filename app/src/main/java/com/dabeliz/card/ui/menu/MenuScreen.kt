@@ -15,6 +15,8 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.PrecisionManufacturing
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,8 +47,10 @@ data class AreaMenu(
 val areasDeLaFabrica = listOf(
     AreaMenu("Área Contable", Icons.Default.AttachMoney, "contable"),
     AreaMenu("Área Modelos", Icons.Default.Checkroom, "modelos"),
+    AreaMenu("Área Hormas", Icons.Default.Straighten, "hormas"),
     AreaMenu("Área Inventario", Icons.Default.Inventory2, "inventario"),
-    AreaMenu("Orden de Pedido", Icons.AutoMirrored.Filled.Assignment, "pedidos")
+    AreaMenu("Orden de Pedido", Icons.AutoMirrored.Filled.Assignment, "pedidos"),
+    AreaMenu("Área de Producción", Icons.Default.PrecisionManufacturing, "produccion")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -80,7 +84,7 @@ fun MenuScreen(
                 .padding(innerPadding)
         ) {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
+                columns = GridCells.Adaptive(minSize = 132.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f)
@@ -117,19 +121,20 @@ private fun AreaMenuItem(area: AreaMenu, onClick: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Icon(
                 imageVector = area.icono,
                 contentDescription = area.titulo,
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier.padding(bottom = 8.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
             Text(
                 text = area.titulo,
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center
             )
         }
