@@ -1,7 +1,5 @@
 package com.dabeliz.card.ui.common
 
-import android.net.Uri
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,9 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -93,9 +89,6 @@ fun GaleriaFotos(
 
 @Composable
 private fun FotoGaleriaThumbnail(uriTexto: String, esPrincipal: Boolean, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val bitmap = remember(uriTexto) { decodificarBitmap(context, Uri.parse(uriTexto)) }
-
     Box(
         modifier = Modifier
             .size(140.dp)
@@ -107,23 +100,7 @@ private fun FotoGaleriaThumbnail(uriTexto: String, esPrincipal: Boolean, onClick
             )
             .clickable(onClick = onClick)
     ) {
-        if (bitmap != null) {
-            Image(
-                bitmap = bitmap.asImageBitmap(),
-                contentDescription = "Foto",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(imageVector = Icons.Default.Photo, contentDescription = null)
-            }
-        }
+        FotoRemota(imagen = uriTexto, contentDescription = "Foto", modifier = Modifier.fillMaxSize())
     }
 }
 
@@ -133,7 +110,6 @@ private fun VisorFotoModal(
     indiceInicial: Int,
     onCerrar: () -> Unit
 ) {
-    val context = LocalContext.current
     val pagerState = rememberPagerState(initialPage = indiceInicial) { imagenes.size }
 
     Dialog(
@@ -149,30 +125,20 @@ private fun VisorFotoModal(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { pagina ->
-                val bitmap = remember(imagenes[pagina]) {
-                    decodificarBitmap(context, Uri.parse(imagenes[pagina]))
-                }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .clickable(onClick = onCerrar),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (bitmap != null) {
-                        Image(
-                            bitmap = bitmap.asImageBitmap(),
-                            contentDescription = "Foto ampliada",
-                            modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Photo,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(64.dp)
-                        )
-                    }
+                    FotoRemota(
+                        imagen = imagenes[pagina],
+                        contentDescription = "Foto ampliada",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Fit,
+                        colorIcono = Color.White,
+                        fondo = Color.Black
+                    )
                 }
             }
 

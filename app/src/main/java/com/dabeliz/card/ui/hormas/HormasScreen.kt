@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,20 +26,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.Horma
 import com.dabeliz.card.model.HormasDeEjemplo
 import com.dabeliz.card.ui.common.DabelizTopBar
-import com.dabeliz.card.ui.common.decodificarBitmap
+import com.dabeliz.card.ui.common.FotoRemota
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,11 +78,6 @@ fun HormasScreen(
 
 @Composable
 private fun HormaItem(horma: Horma, onClick: () -> Unit) {
-    val context = LocalContext.current
-    val bitmap = remember(horma.imagenDestacada) {
-        horma.imagenDestacada?.let { decodificarBitmap(context, android.net.Uri.parse(it)) }
-    }
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -102,20 +92,11 @@ private fun HormaItem(horma: Horma, onClick: () -> Unit) {
                     .background(MaterialTheme.colorScheme.surfaceVariant),
                 contentAlignment = Alignment.Center
             ) {
-                if (bitmap != null) {
-                    Image(
-                        bitmap = bitmap.asImageBitmap(),
-                        contentDescription = horma.nombre,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Photo,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                FotoRemota(
+                    imagen = horma.imagenDestacada,
+                    contentDescription = horma.nombre,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
 
             Column(modifier = Modifier.padding(start = 12.dp)) {

@@ -5,19 +5,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.setValue
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.dabeliz.card.data.HormasRepositorio
+import com.dabeliz.card.data.ModelosRepositorio
+import com.dabeliz.card.data.UsuariosRepositorio
 import com.dabeliz.card.model.CategoriaInventario
-import com.dabeliz.card.model.HormasDeEjemplo
 import com.dabeliz.card.model.InventarioDeEjemplo
 import com.dabeliz.card.model.ItemInventario
-import com.dabeliz.card.model.ModelosDeEjemplo
 import com.dabeliz.card.model.MovimientosDeEjemplo
 import com.dabeliz.card.model.PedidosDeEjemplo
 import com.dabeliz.card.ui.contable.ContableScreen
@@ -31,6 +35,7 @@ import com.dabeliz.card.ui.inventario.EditarItemInventarioScreen
 import com.dabeliz.card.ui.inventario.InventarioScreen
 import com.dabeliz.card.ui.inventario.NuevaHormaInventarioScreen
 import com.dabeliz.card.ui.inventario.NuevoItemInventarioScreen
+import com.dabeliz.card.ui.login.AutenticacionGoogle
 import com.dabeliz.card.ui.login.LoginScreen
 import com.dabeliz.card.ui.menu.MenuScreen
 import com.dabeliz.card.ui.modelos.DetalleModeloScreen
@@ -41,6 +46,10 @@ import com.dabeliz.card.ui.produccion.ProduccionScreen
 import com.dabeliz.card.ui.tarjetas.NuevoPedidoScreen
 import com.dabeliz.card.ui.tarjetas.TarjetasScreen
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
+import com.dabeliz.card.ui.usuarios.UsuariosScreen
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 
 private const val RUTA_LOGIN = "login"
 private const val RUTA_MENU = "menu"
@@ -62,6 +71,7 @@ private const val RUTA_INVENTARIO_HORMA_NUEVA = "inventario/horma-nueva"
 private const val RUTA_PEDIDOS = "pedidos"
 private const val RUTA_PEDIDOS_NUEVO = "pedidos/nuevo"
 private const val RUTA_PRODUCCION = "produccion"
+private const val RUTA_USUARIOS = "usuarios"
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -78,8 +88,28 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TarjetaControlApp() {
     val navController = rememberNavController()
-    val modelos = remember { mutableStateListOf(*ModelosDeEjemplo.lista.toTypedArray()) }
-    val hormas = remember { mutableStateListOf(*HormasDeEjemplo.lista.toTypedArray()) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Firebase recuerda la sesión: si ya hay usuario, se entra directo al menú.
+    val rutaInicial = remember { if (AutenticacionGoogle.usuarioActual != null) RUTA_MENU else RUTA_LOGIN }
+    val usuarioSesion by remember { AutenticacionGoogle.escucharSesion() }
+        .collectAsState(initial = AutenticacionGoogle.usuarioActual)
+    // Los modelos viven en Firestore; solo se escuchan con sesión iniciada (las reglas lo exigen).
+    val modelos by remember(usuarioSesion?.uid) {
+        if (usuarioSesion != null) {
+            ModelosRepositorio.escucharModelos().catch { emit(emptyList()) }
+        } else {
+            flowOf(emptyList())
+        }
+    }.collectAsState(initial = emptyList())
+    // Las hormas también viven en Firestore: los modelos las referencian por hormaId.
+    val hormas by remember(usuarioSesion?.uid) {
+        if (usuarioSesion != null) {
+            HormasRepositorio.escucharHormas().catch { emit(emptyList()) }
+        } else {
+            flowOf(emptyList())
+        }
+    }.collectAsState(initial = emptyList())
     val inventario = remember { mutableStateListOf(*InventarioDeEjemplo.lista.toTypedArray()) }
     val pedidos = remember { mutableStateListOf(*PedidosDeEjemplo.lista.toTypedArray()) }
     val movimientos = remember { mutableStateListOf(*MovimientosDeEjemplo.lista.toTypedArray()) }
@@ -87,7 +117,7 @@ fun TarjetaControlApp() {
     var modeloSeleccionadoId by remember { mutableStateOf<Int?>(null) }
     var itemInventarioSeleccionadoId by remember { mutableStateOf<Int?>(null) }
 
-    NavHost(navController = navController, startDestination = RUTA_LOGIN) {
+    NavHost(navController = navController, startDestination = rutaInicial) {
         composable(RUTA_LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -101,8 +131,11 @@ fun TarjetaControlApp() {
             MenuScreen(
                 onAreaSeleccionada = { ruta -> navController.navigate(ruta) },
                 onCerrarSesion = {
-                    navController.navigate(RUTA_LOGIN) {
-                        popUpTo(RUTA_MENU) { inclusive = true }
+                    scope.launch {
+                        AutenticacionGoogle.cerrarSesion(context)
+                        navController.navigate(RUTA_LOGIN) {
+                            popUpTo(RUTA_MENU) { inclusive = true }
+                        }
                     }
                 }
             )
@@ -142,7 +175,7 @@ fun TarjetaControlApp() {
                 siguienteId = (modelos.maxOfOrNull { it.id } ?: 0) + 1,
                 hormasDisponibles = hormas,
                 onGuardar = { nuevoModelo ->
-                    modelos.add(nuevoModelo)
+                    ModelosRepositorio.guardar(context, nuevoModelo)
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
@@ -166,10 +199,7 @@ fun TarjetaControlApp() {
                     modelo = modelo,
                     hormasDisponibles = hormas,
                     onGuardar = { modeloEditado ->
-                        val indice = modelos.indexOfFirst { it.id == modeloEditado.id }
-                        if (indice != -1) {
-                            modelos[indice] = modeloEditado
-                        }
+                        ModelosRepositorio.guardar(context, modeloEditado, anterior = modelo)
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }
@@ -191,7 +221,7 @@ fun TarjetaControlApp() {
             NuevaHormaScreen(
                 siguienteId = (hormas.maxOfOrNull { it.id } ?: 0) + 1,
                 onGuardar = { nuevaHorma ->
-                    hormas.add(nuevaHorma)
+                    HormasRepositorio.guardar(context, nuevaHorma)
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
@@ -202,6 +232,7 @@ fun TarjetaControlApp() {
             if (horma != null) {
                 DetalleHormaScreen(
                     horma = horma,
+                    modelosQueLaUsan = modelos.filter { it.hormaId == horma.id },
                     onBack = { navController.popBackStack() },
                     onEditar = { navController.navigate(RUTA_HORMAS_EDITAR) }
                 )
@@ -213,10 +244,7 @@ fun TarjetaControlApp() {
                 EditarHormaScreen(
                     horma = horma,
                     onGuardar = { hormaEditada ->
-                        val indice = hormas.indexOfFirst { it.id == hormaEditada.id }
-                        if (indice != -1) {
-                            hormas[indice] = hormaEditada
-                        }
+                        HormasRepositorio.guardar(context, hormaEditada, anterior = horma)
                         navController.popBackStack()
                     },
                     onBack = { navController.popBackStack() }
@@ -337,6 +365,15 @@ fun TarjetaControlApp() {
                     pedidos.add(nuevoPedido)
                     navController.popBackStack()
                 },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(RUTA_USUARIOS) {
+            val usuarios by remember { UsuariosRepositorio.escucharUsuarios().catch { emit(emptyList()) } }
+                .collectAsState(initial = null)
+            UsuariosScreen(
+                usuarios = usuarios,
+                uidActual = usuarioSesion?.uid,
                 onBack = { navController.popBackStack() }
             )
         }

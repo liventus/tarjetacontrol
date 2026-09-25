@@ -1,0 +1,47 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function sesion() {
+      return request.auth != null;
+    }
+    function perfil() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+    function tienePerfil() {
+      return exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+    function esAdmin() {
+      return sesion() && tienePerfil() && perfil().activo == true && perfil().rol == 'admin';
+    }
+    function esTrabajador() {
+      return sesion() && tienePerfil() && perfil().activo == true && perfil().rol == 'trabajador';
+    }
+
+    // usuarios/{uid}: cada cuenta crea su propio documento al primer login, siempre
+    // como 'trabajador'. Solo un admin puede cambiar rol o activo.
+    match /usuarios/{uid} {
+      allow read: if sesion() && (request.auth.uid == uid || esAdmin());
+      allow create: if sesion() && request.auth.uid == uid
+                    && request.resource.data.rol == 'trabajador'
+                    && request.resource.data.activo == true;
+      allow update: if esAdmin()
+                    || (sesion() && request.auth.uid == uid
+                        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'activo']));
+      allow delete: if esAdmin();
+    }
+
+    // modelos/{id}: el admin gestiona; el trabajador (futura app) solo consulta.
+    match /modelos/{modeloId} {
+      allow read: if esAdmin() || esTrabajador();
+      allow write: if esAdmin();
+    }
+
+    // hormas/{id}: referenciadas por modelos.hormaId. Mismo esquema de permisos.
+    match /hormas/{hormaId} {
+      allow read: if esAdmin() || esTrabajador();
+      allow write: if esAdmin();
+    }
+  }
+}

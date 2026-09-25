@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Checkroom
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.ManageAccounts
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Card
@@ -50,7 +51,8 @@ val areasDeLaFabrica = listOf(
     AreaMenu("Área Hormas", Icons.Default.Straighten, "hormas"),
     AreaMenu("Área Inventario", Icons.Default.Inventory2, "inventario"),
     AreaMenu("Orden de Pedido", Icons.AutoMirrored.Filled.Assignment, "pedidos"),
-    AreaMenu("Área de Producción", Icons.Default.PrecisionManufacturing, "produccion")
+    AreaMenu("Área de Producción", Icons.Default.PrecisionManufacturing, "produccion"),
+    AreaMenu("Usuarios y Roles", Icons.Default.ManageAccounts, "usuarios")
 )
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -3,6 +3,8 @@ package com.dabeliz.card.ui.hormas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -23,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.dabeliz.card.model.Horma
+import com.dabeliz.card.model.ModeloCalzado
 import com.dabeliz.card.model.HormasDeEjemplo
 import com.dabeliz.card.ui.common.ContenidoCentrado
 import com.dabeliz.card.ui.common.DabelizTopBar
@@ -33,6 +36,8 @@ import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
 @Composable
 fun DetalleHormaScreen(
     horma: Horma,
+    /** Modelos cuyo hormaId apunta a esta horma. */
+    modelosQueLaUsan: List<ModeloCalzado> = emptyList(),
     onBack: () -> Unit,
     onEditar: () -> Unit,
     modifier: Modifier = Modifier
@@ -117,6 +122,31 @@ fun DetalleHormaScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary
                     )
+                }
+
+                HorizontalDivider()
+
+                Text(
+                    text = "Modelos que usan esta horma",
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                )
+                if (modelosQueLaUsan.isEmpty()) {
+                    Text(
+                        text = "Ningún modelo tiene asignada esta horma todavía.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 24.dp)
+                    )
+                } else {
+                    modelosQueLaUsan.forEach { modelo ->
+                        Text(
+                            text = "• ${modelo.nombre} (${modelo.categoria})",
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(24.dp))
                 }
             }
         }

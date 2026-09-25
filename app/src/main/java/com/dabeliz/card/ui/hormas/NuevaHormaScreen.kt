@@ -5,7 +5,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,10 +29,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,13 +47,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -67,14 +65,16 @@ import com.dabeliz.card.ui.common.ContenidoCentrado
 import com.dabeliz.card.ui.common.DabelizTopBar
 import com.dabeliz.card.ui.common.SelectorTallas
 import com.dabeliz.card.ui.common.crearUriParaFoto
-import com.dabeliz.card.ui.common.decodificarBitmap
+import com.dabeliz.card.ui.common.FotoRemota
 import com.dabeliz.card.ui.theme.DabelizGold
 import com.dabeliz.card.ui.theme.TarjetaconotrolTheme
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 @Composable
 fun NuevaHormaScreen(
     siguienteId: Int,
-    onGuardar: (Horma) -> Unit,
+    onGuardar: suspend (Horma) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -105,7 +105,7 @@ fun NuevaHormaScreen(
 @Composable
 fun EditarHormaScreen(
     horma: Horma,
-    onGuardar: (Horma) -> Unit,
+    onGuardar: suspend (Horma) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -142,11 +142,12 @@ private fun FormularioHorma(
     imagenesIniciales: List<Uri>,
     imagenPrincipalInicial: Uri?,
     textoBoton: String,
-    onGuardar: (nombre: String, tallas: List<SerieTalla>, imagenes: List<String>, imagenPrincipal: String?) -> Unit,
+    onGuardar: suspend (nombre: String, tallas: List<SerieTalla>, imagenes: List<String>, imagenPrincipal: String?) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     var nombre by rememberSaveable { mutableStateOf(nombreInicial) }
     val paresPorTalla = remember { mutableStateMapOf<Int, String>().apply { putAll(paresPorTallaInicial) } }
@@ -154,6 +155,7 @@ private fun FormularioHorma(
     var imagenPrincipal by rememberSaveable { mutableStateOf(imagenPrincipalInicial) }
     var uriFotoPendiente by rememberSaveable { mutableStateOf<Uri?>(null) }
     var errorMensaje by remember { mutableStateOf<String?>(null) }
+    var guardando by remember { mutableStateOf(false) }
 
     fun agregarImagen(uri: Uri) {
         imagenes = imagenes + uri
@@ -357,19 +359,40 @@ private fun FormularioHorma(
                         paresPorTalla.isEmpty() -> errorMensaje = "Selecciona al menos una talla"
                         seriesValidas.size != paresPorTalla.size ->
                             errorMensaje = "Ingresa cuántos pares tienes de cada talla seleccionada"
-                        else -> onGuardar(
-                            nombre,
-                            seriesValidas.sortedBy { it.talla },
-                            imagenes.map { it.toString() },
-                            imagenPrincipal?.toString()
-                        )
+                        else -> {
+                            guardando = true
+                            errorMensaje = null
+                            scope.launch {
+                                try {
+                                    onGuardar(
+                                        nombre,
+                                        seriesValidas.sortedBy { it.talla },
+                                        imagenes.map { it.toString() },
+                                        imagenPrincipal?.toString()
+                                    )
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    errorMensaje = "No se pudo guardar: ${e.message}"
+                                } finally {
+                                    guardando = false
+                                }
+                            }
+                        }
                     }
                 },
+                enabled = !guardando,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 8.dp, bottom = 24.dp)
             ) {
-                Text(textoBoton)
+                if (guardando) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("Guardando…")
+                } else {
+                    Text(textoBoton)
+                }
             }
           }
         }
@@ -383,9 +406,6 @@ private fun FotoHormaThumbnail(
     onMarcarPrincipal: () -> Unit,
     onQuitar: () -> Unit
 ) {
-    val context = LocalContext.current
-    val bitmap = remember(uri) { decodificarBitmap(context, uri) }
-
     Box(modifier = Modifier.size(96.dp)) {
         Box(
             modifier = Modifier
@@ -397,23 +417,11 @@ private fun FotoHormaThumbnail(
                     shape = RoundedCornerShape(12.dp)
                 )
         ) {
-            if (bitmap != null) {
-                Image(
-                    bitmap = bitmap.asImageBitmap(),
-                    contentDescription = "Foto de la horma",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-            } else {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(imageVector = Icons.Default.Photo, contentDescription = null)
-                }
-            }
+            FotoRemota(
+                imagen = uri.toString(),
+                contentDescription = "Foto de la horma",
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
         Icon(
